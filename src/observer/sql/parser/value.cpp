@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include <sstream>
+#include <cmath>
 #include "sql/parser/value.h"
 #include "storage/field/field.h"
 #include "common/log/log.h"
@@ -230,25 +231,43 @@ int Value::compare(const Value &other) const
     float other_data = other.num_value_.int_value_;
     return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
   } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) {
-    std::string this_data = std::to_string(this->num_value_.int_value_);
-    return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other.str_value_.c_str()), other.str_value_.length());
-  } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) { 
-    std::string other_data = std::to_string(other.num_value_.int_value_);
-    return common::compare_string((void*)(this->str_value_.c_str()), this->str_value_.length(), (void*)(other_data.c_str()), other_data.length());
+    float this_data = this->num_value_.int_value_;
+    float other_data = string_to_float(other.str_value_.c_str());
+    return common::compare_float((void *)&this_data, (void *)&other_data);
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) {
+    float other_data = other.num_value_.int_value_;
+    float this_data = string_to_float(this->str_value_.c_str());
+    return common::compare_float((void *)&this_data, (void *)&other_data);
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == CHARS) {
-    // std::string this_data = std::to_string(this->num_value_.float_value_);
-    // return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other.str_value_.c_str()), other.str_value_.length());
-    std::string this_data = removeFloatStringEndZero(std::to_string(this->num_value_.float_value_));
-    std::string other_data = removeFloatStringEndZero(floatString_to_String(other.str_value_));
-    return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other_data.c_str()), other_data.length());
+    float this_data = this->num_value_.float_value_;
+    float other_data = string_to_float(other.str_value_.c_str());
+    return common::compare_float((void *)&this_data, (void *)&other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) {
-    // std::string other_data = std::to_string(other.num_value_.float_value_);
-    // return common::compare_string((void*)(this->str_value_.c_str()), this->str_value_.length(), (void*)(other_data.c_str()), other_data.length());
-    std::string other_data = removeFloatStringEndZero(std::to_string(other.num_value_.float_value_));
-    std::string this_data = removeFloatStringEndZero(floatString_to_String(this->str_value_));
-    return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other_data.c_str()), other_data.length());
+    float other_data = other.num_value_.float_value_;
+    float this_data = string_to_float(this->str_value_.c_str());
+    return common::compare_float((void *)&this_data, (void *)&other_data);
   }
 
+
+  // } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) {
+  //   std::string this_data = std::to_string(this->num_value_.int_value_);
+  //   return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other.str_value_.c_str()), other.str_value_.length());
+  // } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) { 
+  //   std::string other_data = std::to_string(other.num_value_.int_value_);
+  //   return common::compare_string((void*)(this->str_value_.c_str()), this->str_value_.length(), (void*)(other_data.c_str()), other_data.length());
+  // } else if (this->attr_type_ == FLOATS && other.attr_type_ == CHARS) {
+  //   // std::string this_data = std::to_string(this->num_value_.float_value_);
+  //   // return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other.str_value_.c_str()), other.str_value_.length());
+  //   std::string this_data = removeFloatStringEndZero(std::to_string(this->num_value_.float_value_));
+  //   std::string other_data = removeFloatStringEndZero(floatString_to_String(other.str_value_));
+  //   return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other_data.c_str()), other_data.length());
+  // } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) {
+  //   // std::string other_data = std::to_string(other.num_value_.float_value_);
+  //   // return common::compare_string((void*)(this->str_value_.c_str()), this->str_value_.length(), (void*)(other_data.c_str()), other_data.length());
+  //   std::string other_data = removeFloatStringEndZero(std::to_string(other.num_value_.float_value_));
+  //   std::string this_data = removeFloatStringEndZero(floatString_to_String(this->str_value_));
+  //   return common::compare_string((void *)(this_data.c_str()), this_data.length(), (void *)(other_data.c_str()), other_data.length());
+  // }
   LOG_WARN("not supported");
   return -1;  // TODO return rc?
 }
@@ -423,31 +442,66 @@ void intDate_to_strDate(const int intDate, char strDate[11])
   snprintf(strDate,11,"%04d-%02d-%02d", intDate/10000, (intDate % 10000)/100, intDate % 100);
 }
 
-std::string floatString_to_String(std::string floatString){
-  std::string ret = "";
-  int i = 0;
-  bool dot_flag = false;
-  while(floatString[i] >= '0' && floatString[i] <= '9'){
-    ret += floatString[i];
-    i++;
-    if (!dot_flag && floatString[i] == '.') {
-      i++;
-      ret += '.';
-      dot_flag = true;
-    }
+float string_to_float(const std::string& str){
+  float result = 0.0;
+  float integer = 0.0;
+  float fraction = 0.0;
+  int exponent = 0;
+  bool isDot = false;
+  if(str.empty() || str[0] < '0' || str[0] > '9'){
+    return 0;
   }
-  return ret == "" ? floatString : ret;
+  for(int i = 0;i < str.length();i++){
+
+    if(str[i] < '0' || str[i] > '9'){
+      if(str[i] == '.' && !isDot){
+        isDot = true;
+        continue;
+      }
+      else 
+        return result;
+    }
+
+    if(!isDot){
+      integer = integer * 10 + (str[i] - '0');
+    }
+    else{
+      fraction = fraction * 10 + (str[i] - '0');
+      exponent--;
+    }
+
+    result = integer + fraction * pow(10, exponent);
+  }
+
+  return result;
+
 }
 
-std::string removeFloatStringEndZero(std::string str){
-  std::string ret = "";
-  for(int i = str.size() - 1; i >= 0; i--)
-    if(str[i] == '0')
-      continue;
-    else
-      ret = str[i] + ret;
-  if(ret == "")
-    ret = "0";
-  return ret;
-}
+// std::string floatString_to_String(std::string floatString){
+//   std::string ret = "";
+//   int i = 0;
+//   bool dot_flag = false;
+//   while(floatString[i] >= '0' && floatString[i] <= '9'){
+//     ret += floatString[i];
+//     i++;
+//     if (!dot_flag && floatString[i] == '.') {
+//       i++;
+//       ret += '.';
+//       dot_flag = true;
+//     }
+//   }
+//   return ret == "" ? floatString : ret;
+// }
+
+// std::string removeFloatStringEndZero(std::string str){
+//   std::string ret = "";
+//   for(int i = str.size() - 1; i >= 0; i--)
+//     if(str[i] == '0')
+//       continue;
+//     else
+//       ret = str[i] + ret;
+//   if(ret == "")
+//     ret = "0";
+//   return ret;
+// }
 

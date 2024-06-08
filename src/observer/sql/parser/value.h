@@ -116,5 +116,6 @@ bool check_date(int y, int m, int d);
 void strDate_to_intDate(const char* strDate,int& intDate);
 void intDate_to_strDate(const int intDate, char* strDate);
 
-std::string floatString_to_String(std::string floatString);
-std::string removeFloatStringEndZero(std::string str);
+float string_to_float(const std::string& str);
+// std::string floatString_to_String(std::string floatString);
+// std::string removeFloatStringEndZero(std::string str);
